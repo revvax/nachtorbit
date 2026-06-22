@@ -117,13 +117,17 @@ footer b{color:var(--ink-dim)}
     if (/bandcamp\.com/i.test(u)) return "bc";
     return "link";
   }
-  // Inline-Quelle wählen: zuerst das Sample, sonst die Website (viele Acts haben
-  // ihren SoundCloud/YouTube-Link nur in der Website hinterlegt).
+  // SoundCloud-Kurzlinks (on.soundcloud.com) kann das Embed-Widget NICHT
+  // abspielen ("not a valid SoundCloud URL") – sie zählen daher nicht als
+  // inline-spielbar und werden extern geöffnet.
+  function scOk(u) { return /soundcloud\.com/i.test(u) && !/on\.soundcloud\.com/i.test(u); }
+  // Inline-Quelle wählen: echtes SoundCloud wird bevorzugt (kleinerer, schnellerer
+  // Player) – egal ob im Sample oder in der Website. Erst danach YouTube.
   function playSrc(act) {
-    var ks = kind(act.sample);
-    if (ks === "sc" || ks === "yt") return { url: act.sample, k: ks };
-    var kw = kind(act.website);
-    if (kw === "sc" || kw === "yt") return { url: act.website, k: kw };
+    if (scOk(act.sample)) return { url: act.sample, k: "sc" };
+    if (scOk(act.website)) return { url: act.website, k: "sc" };
+    if (ytId(act.sample)) return { url: act.sample, k: "yt" };
+    if (ytId(act.website)) return { url: act.website, k: "yt" };
     return null;
   }
   function scWidget(u) {
