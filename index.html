@@ -33,6 +33,15 @@ h1 .hl{color:var(--red)}
 .sort:focus{border-color:var(--red)}
 .shows-line{display:flex;flex-wrap:wrap;gap:6px;padding:0 15px 13px}
 .show-chip{font-size:10px;font-weight:600;letter-spacing:.02em;color:var(--ink-dim);background:rgba(236,230,216,.05);border:1px solid var(--line);border-radius:6px;padding:3px 8px;white-space:nowrap}
+.filters{margin-top:14px;display:flex;flex-direction:column;gap:9px}
+.frow{display:flex;gap:8px;align-items:flex-start}
+.frow-lbl{flex:none;width:42px;font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);padding-top:9px}
+.fwrap{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
+.fbtn{font-family:inherit;font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--ink-dim);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:7px 12px;cursor:pointer;transition:.14s;white-space:nowrap}
+.fbtn:hover{color:var(--ink);border-color:var(--ink-faint)}
+.fbtn.on{background:var(--red);border-color:var(--red);color:#0d0d0d}
+.resetf{align-self:flex-start;margin-left:50px;font-family:inherit;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);background:none;border:0;cursor:pointer;padding:0}
+.resetf:hover{color:var(--red)}
 .count{margin:18px 2px 12px;font-size:10.5px;letter-spacing:.28em;color:var(--ink-faint);text-transform:uppercase;display:flex;align-items:center;gap:10px}
 .count::after{content:"";flex:1;height:1px;background:var(--line)}
 .act{border:1px solid var(--line);border-radius:var(--r);background:linear-gradient(180deg,var(--panel),var(--bg2));margin-bottom:10px;overflow:hidden;transition:border-color .18s}
@@ -90,6 +99,11 @@ footer b{color:var(--ink-dim)}
 <option value="stage">Stage</option>
 </select>
 </div>
+<div class="filters">
+<div class="frow"><span class="frow-lbl">Tag</span><span class="fwrap" id="dayrow"></span></div>
+<div class="frow"><span class="frow-lbl">Stage</span><span class="fwrap" id="stagerow"></span></div>
+<button id="resetf" class="resetf" type="button" hidden>✕ Filter zurücksetzen</button>
+</div>
 </header>
 <div class="count" id="count">…</div>
 <div id="list"></div>
@@ -106,6 +120,11 @@ footer b{color:var(--ink-dim)}
   var ratedEl = document.getElementById("rated");
   var fillEl = document.getElementById("ratedfill");
   var sortEl = document.getElementById("sort");
+  var dayRow = document.getElementById("dayrow");
+  var stageRow = document.getElementById("stagerow");
+  var resetEl = document.getElementById("resetf");
+  var daySel = new Set();    // ausgewählte Tage (Datum YYYY-MM-DD)
+  var stageSel = new Set();  // ausgewählte Stages (Floor-Name oder "__other__")
   var active = null;
 
   /* ---- Rating: 1–5 Sterne, lokal im Browser gespeichert ------------------ */
@@ -235,6 +254,55 @@ footer b{color:var(--ink-dim)}
     });
     return box;
   }
+
+  /* ---- Filter: Tag-Buttons + Stage-Buttons (Mehrfachauswahl) ----------- */
+  function buildFilters() {
+    var dayMap = {}, stageMap = {}, hasOther = false;
+    ACTS.forEach(function (act) {
+      if (!act.shows.length) hasOther = true;
+      act.shows.forEach(function (s) {
+        if (s.start) dayMap[s.start.slice(0, 10)] = true;
+        var f = (s.floor || "").trim();
+        if (f) stageMap[f] = true; else hasOther = true;
+      });
+    });
+    Object.keys(dayMap).sort().forEach(function (d) {
+      var wd = WD[new Date(d + "T12:00:00Z").getUTCDay()];
+      addBtn(dayRow, daySel, d, wd + " " + d.slice(8, 10) + ".");
+    });
+    var stages = Object.keys(stageMap).sort(function (a, b) { return a.localeCompare(b, "de", { sensitivity: "base" }); });
+    if (hasOther) stages.push("__other__");
+    stages.forEach(function (st) { addBtn(stageRow, stageSel, st, st === "__other__" ? "Sonstiges" : st); });
+  }
+  function addBtn(row, set, val, label) {
+    if (!row) return;
+    var b = document.createElement("button"); b.className = "fbtn"; b.type = "button"; b.textContent = label;
+    b.addEventListener("click", function () {
+      if (set.has(val)) { set.delete(val); b.classList.remove("on"); }
+      else { set.add(val); b.classList.add("on"); }
+      stopActive(); render(searchEl ? searchEl.value : "");
+    });
+    row.appendChild(b);
+  }
+  function clearFilters() {
+    daySel.clear(); stageSel.clear();
+    var on = document.querySelectorAll(".fbtn.on");
+    for (var i = 0; i < on.length; i++) on[i].classList.remove("on");
+    stopActive(); render(searchEl ? searchEl.value : "");
+  }
+  // Act sichtbar, wenn ein Auftritt sowohl zum Tag- als auch zum Stage-Filter passt.
+  function matchesFilter(act) {
+    if (!daySel.size && !stageSel.size) return true;
+    if (!act.shows.length) return !daySel.size && (!stageSel.size || stageSel.has("__other__"));
+    for (var i = 0; i < act.shows.length; i++) {
+      var s = act.shows[i];
+      var dayOk = !daySel.size || (s.start && daySel.has(s.start.slice(0, 10)));
+      var sk = (s.floor || "").trim() || "__other__";
+      var stageOk = !stageSel.size || stageSel.has(sk);
+      if (dayOk && stageOk) return true;
+    }
+    return false;
+  }
   // Sortierschlüssel des frühesten Auftritts (shows ist nach start sortiert)
   function firstStart(act) { return (act.shows[0] && act.shows[0].start) || "￿"; }
   function firstFloor(act) { return (act.shows[0] && act.shows[0].floor) || "￿"; }
@@ -266,6 +334,7 @@ footer b{color:var(--ink-dim)}
     var f = (filter || "").toLowerCase().trim();
     var shown = 0;
     sortedActs().forEach(function (act) {
+      if (!matchesFilter(act)) return;
       var hay = (act.artist + " " + (act.genre || "") + " " +
         act.shows.map(function (s) { return s.floor; }).join(" ")).toLowerCase();
       if (f && hay.indexOf(f) === -1) return;
@@ -305,10 +374,14 @@ footer b{color:var(--ink-dim)}
       el.appendChild(buildStars(act));
       listEl.appendChild(el);
     });
-    countEl.textContent = shown + " Acts" + (f ? " gefunden" : " mit Sample");
+    var filtering = f || daySel.size || stageSel.size;
+    countEl.textContent = shown + (filtering ? " Acts gefunden" : " Acts mit Sample");
+    if (resetEl) resetEl.hidden = !(daySel.size || stageSel.size);
   }
   if (searchEl) searchEl.addEventListener("input", function () { stopActive(); render(this.value); });
   if (sortEl) sortEl.addEventListener("change", function () { stopActive(); render(searchEl ? searchEl.value : ""); });
+  if (resetEl) resetEl.addEventListener("click", clearFilters);
+  buildFilters();
   updateTracker();
   render("");
 })();</script>
