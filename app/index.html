@@ -791,8 +791,8 @@ footer b{color:var(--ink-dim)}
       i = Math.max(0, Math.min(spans.length - 1, i));
       jumpToLetter(spans[i].getAttribute("data-l"));
       var _l = spans[i].getAttribute("data-l");
-      azbubEl.textContent = _l === "__end__" ? "Info" : _l;
-      azbubEl.style.fontSize = _l === "__end__" ? "22px" : "";
+      azbubEl.textContent = _l === "__end__" ? "Info" : _l === "__top__" ? "Oben" : _l;
+      azbubEl.style.fontSize = (_l === "__end__" || _l === "__top__") ? "22px" : "";
       var vh = window.innerHeight || 800;
       azbubEl.style.top = Math.max(50, Math.min(vh - 50, clientY)) + "px";
       azbubEl.classList.add("on"); azbarEl.classList.add("drag");
@@ -821,10 +821,12 @@ footer b{color:var(--ink-dim)}
     var seen = {}, order = [], cards = listEl.children;
     for (var i = 0; i < cards.length; i++) { var L = cards[i].getAttribute("data-letter") || "#"; if (!seen[L]) { seen[L] = 1; order.push(L); } }
     azbarEl.innerHTML = "";
+    var top = document.createElement("span"); top.className = "az-end"; top.setAttribute("data-l", "__top__"); top.textContent = "↑"; azbarEl.appendChild(top);
     order.forEach(function (L) { var s = document.createElement("span"); s.setAttribute("data-l", L); s.textContent = L; azbarEl.appendChild(s); });
     var end = document.createElement("span"); end.className = "az-end"; end.setAttribute("data-l", "__end__"); end.textContent = "↓"; azbarEl.appendChild(end);
   }
   function jumpToLetter(L) {
+    if (L === "__top__") { window.scrollTo(0, 0); return; }
     if (L === "__end__") { window.scrollTo(0, document.body.scrollHeight); return; }
     var card = listEl.querySelector('.act[data-letter="' + L + '"]');
     if (card) window.scrollTo(0, card.getBoundingClientRect().top + (window.scrollY || 0) - 70);
