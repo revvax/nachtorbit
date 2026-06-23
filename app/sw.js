@@ -2,7 +2,7 @@
  * Seite (Navigation): erst Netz (immer aktuell), bei Offline aus dem Cache.
  * Statische Dateien (Icons/Fonts/Manifest): erst Cache, sonst Netz.
  * SoundCloud/YouTube brauchen Netz und schlagen offline einfach fehl. */
-var CACHE = "fusion-hp-v11";
+var CACHE = "fusion-hp-v12";
 var ASSETS = [
   "./",
   "./index.html",
